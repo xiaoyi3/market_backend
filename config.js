@@ -5,7 +5,7 @@ const dbConfig = {
     client: 'sqlite3',
     useNullAsDefault: true,
     connection: {
-      filename: '/home/chan/workspace/plasmid/test.db',
+      filename: '/home/arno/workspace/plasmid/test.db',
     },
     pool: {
       afterCreate: (conn, cb) =>
@@ -24,7 +24,7 @@ const dbConfig = {
   },
 };
 
-const port = 8080;
+const port = 8081;
 
 module.exports = {
   dbConfig,
