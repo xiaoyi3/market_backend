@@ -15,6 +15,7 @@ app.use(cors())
 app.use(bodyParser.json()) // for parsing application/json
 app.use(bodyParser.urlencoded({ extended: true })) // for parsing application/x-www-form-urlencoded
 
+const MAX_ELEMENT_IN_PAGE = 5;
 
 
 app.get('/', (req, res) => {
@@ -30,6 +31,39 @@ app.post('/user', (req, res) => {
   const reqbody = req.body
   let id = reqbody['id']
   
+});
+
+app.post('/user/check', async (req, res) => {
+  const username = req.body['username'];
+  const password = req.body['password'];
+  msg = await dbm.login(username, password);
+  rts = 'False'
+  if (msg === 'verified') {
+    rts = 'True';
+  } else if (msg === 'no such user or wrong password') {
+    rts = 'False';
+  } else {
+    rts = 'False';
+  }
+  res.json({'res': rts, 'msg': msg})
+});
+
+app.post('/register', async (req, res) => {
+  const username = req.body['username'];
+  const password = req.body['password'];
+  rts = 'False'
+  console.log(req.body)
+  try {
+    msg = await dbm.register(username, password);
+    rts = 'test'
+  } catch (e){
+    msg = 'exists'
+    rts = 'False'
+  }
+  res.json({
+    'res':rts,
+    'msg':msg
+  })
 });
 
 //purchase 
@@ -73,27 +107,22 @@ app.get('/asset/:id', async (req, res) => {
 
 app.get('/asset/batch/:batch', async (req, res) => {
   const batch = req.params.batch;
-  let assets = [];
-  let id = batch * 30;
-  let total = 0;
-  for(let i=0; i<30; i++) {
-    const asset = await dbm.queryAsset(id);
-    if(asset) {
-      console.log(asset);
-      assets.push(asset);
-      total++;
-    }
-    id++;
-  }
-
-  res.json({'assets': assets, 'total': total});
+  const assets = await dbm.assetPage(batch, MAX_ELEMENT_IN_PAGE);
+  
+  pages = Math.ceil(assets.total/MAX_ELEMENT_IN_PAGE);
+  element = Math.min(MAX_ELEMENT_IN_PAGE, assets.total-batch*MAX_ELEMENT_IN_PAGE);
+  res.json(
+    {assets, 'pages': pages, 'element': element}
+    );
 });
 
 app.get('/user/rank/:batch', async (req, res) => {
   let batch = req.params.batch
-  let users = await dbm.userRank();
-  users = users.slice(batch*30, (batch+1)*30)
-  res.json({'total': users.length,'users':users})
+  let users = await dbm.userRank(batch, MAX_ELEMENT_IN_PAGE);
+  //users = users.slice(batch*30, (batch+1)*30)
+  pages = Math.ceil(users.total/MAX_ELEMENT_IN_PAGE);
+  element = Math.min(MAX_ELEMENT_IN_PAGE, users.total-batch*MAX_ELEMENT_IN_PAGE);
+  res.json({users, 'pages':pages, 'element':element})
 });
 
 app.listen(config.port, () => {
