@@ -8,6 +8,8 @@ const bodyParser = require('body-parser')
 
 
 const express = require('express');
+const { json } = require('express/lib/response');
+const { val } = require('objection');
 const app = express();
 const dbm = new DataManager(knexConf);
 
@@ -18,12 +20,12 @@ app.use(bodyParser.urlencoded({ extended: true })) // for parsing application/x-
 const MAX_ELEMENT_IN_PAGE = 5;
 
 
-app.get('/', (req, res) => {
-  console.log(req.body);
-
-  res.send(JSON.stringify({
-    message: 'Hello World!',
-  }));
+app.get('/', async(req, res) => {
+  let username = req.params.username;
+  console.log(username);
+  const user = await dbm.queryUser(username);
+  console.log(user['username'])
+  res.json('ok')
 });
 
 //user info
@@ -33,54 +35,69 @@ app.post('/user', (req, res) => {
   
 });
 
-app.post('/user/check', async (req, res) => {
+app.post('/login', async (req, res) => {
   const username = req.body['username'];
   const password = req.body['password'];
-  msg = await dbm.login(username, password);
-  rts = 'False'
-  if (msg === 'verified') {
-    rts = 'True';
-  } else if (msg === 'no such user or wrong password') {
-    rts = 'False';
-  } else {
-    rts = 'False';
+  let user;
+  try {
+    await dbm.login(username, password);
+    user = await dbm.queryUser(username);
+
+    res.json({
+      statue: true,
+      user: user,
+      message: 'successful'
+    })
+
+  } catch (e) {
+    res.json({
+      statue: false,
+      user: null,
+      message: e.message
+    });
   }
-  res.json({'res': rts, 'msg': msg})
+  
 });
 
 app.post('/register', async (req, res) => {
   const username = req.body['username'];
   const password = req.body['password'];
-  rts = 'False'
-  console.log(req.body)
+  rts = 'False';
+  console.log(req.body);
   try {
     msg = await dbm.register(username, password);
-    rts = 'test'
+    rts = 'True';
   } catch (e){
-    msg = 'exists'
-    rts = 'False'
+    msg = 'exists';
+    rts = 'False';
   }
   res.json({
-    'res':rts,
-    'msg':msg
+    res:rts,
+    msg:msg
   })
 });
 
 //purchase 
-app.get('/asset/:id/purchase', async (req, res) => {
-  const asset_ID = req.params.asset_id;
-  const user_ID = req.params.user_id;
+app.post('/asset/purchase', async (req, res) => {
+  const username = req.body['username'];
+  const assetID = req.body['assetID'];
+  
   try {
-    const msg = await dbm.assetPurchase(asset_ID, user_ID);
+    let user = await dbm.queryUser(username);
+    console.log(user['id']);
+    const msg = await dbm.assetPurchase(assetID, user['id']);
     if(msg === 'ok') {
+      user = await dbm.queryUser(username);
       res.json({
-        status : 'ok',
-        message: `${user_ID} has purchased successfully.`
+        'status' : 'true',
+        'message': `${username} has purchased successfully.`,
+        'balance': user['sanity']
       });
     } else {
       res.json({
-        status : 'error',
-        message: msg
+        'status' : 'false',
+        'message': msg,
+        'balance': user['sanity']
       });
     }
   } catch (e) {
@@ -90,7 +107,6 @@ app.get('/asset/:id/purchase', async (req, res) => {
       message: String(e)
     });
   }
-  
   
 });
 
@@ -125,6 +141,25 @@ app.get('/user/rank/:batch', async (req, res) => {
   res.json({users, 'pages':pages, 'element':element})
 });
 
+
+app.post('/onSale', async (req, res) => {
+  let name, uri, marketName, value;
+  name = req.body['name'];
+  uri = req.body['uri'];
+  marketName = req.body['marketName'];
+  value = req.body['value'];
+
+  let rst = dbm.onSale(name, uri, marketName, value);
+  res.json(rst);  
+});
+
+app.get('/onSale', (req, res) =>{
+  res.json({
+    msg: 'post to this url',
+    form: '{name:"str", uri:"str", marketName:"str", vaule:"int"}'
+  });
+});
+
 app.listen(config.port, () => {
   console.log(`Server is running on port ${config.port}`);
 });
@@ -147,4 +182,5 @@ app.post('/register', async (req, res) =>{
       message: String(e)
     })
   }
-})
+});
+
